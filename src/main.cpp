@@ -1,6 +1,8 @@
 #include <string>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
+#include <ESP8266WebServer.h>
+#include <ElegantOTA.h>
 
 #include <lvgl.h>
 #include <TFT_eSPI.h>
@@ -13,6 +15,8 @@ const char *AP_NAME = "Router Monitor";
 
 LV_FONT_DECLARE(tencent_w7_22)
 LV_FONT_DECLARE(tencent_w7_24)
+
+ESP8266WebServer server(80);
 
 TFT_eSPI tft = TFT_eSPI();
 static lv_disp_buf_t disp_buf;
@@ -279,6 +283,15 @@ void setup()
     wm.setConfigPortalBlocking(false);
     bool state = wm.autoConnect(AP_NAME);
 
+    // 初始化 WebServer
+    server.on("/", []() {
+        server.send(200, "text/plain", "Hi! This is ElegantOTA.");
+    });
+
+    ElegantOTA.begin(&server);    // Start ElegantOTA
+    server.begin();
+    Serial.println("HTTP server started");
+
     tft.begin();
     tft.setRotation(0);
 
@@ -508,6 +521,8 @@ void setup()
     if (state)
     {
         Serial.println("Ready");
+        Serial.print("IP address: ");
+        Serial.println(WiFi.localIP());
     }
     else
     {
@@ -519,4 +534,6 @@ void loop()
 {
     lv_task_handler();
     wm.process();
+    server.handleClient();
+    ElegantOTA.loop();
 }
