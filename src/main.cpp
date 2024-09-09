@@ -16,7 +16,7 @@ const char *AP_NAME = "Router Monitor";
 LV_FONT_DECLARE(tencent_w7_22)
 LV_FONT_DECLARE(tencent_w7_24)
 
-ESP8266WebServer server(80);
+ESP8266WebServer server(81);
 
 TFT_eSPI tft = TFT_eSPI();
 static lv_disp_buf_t disp_buf;
@@ -68,6 +68,8 @@ double temp_value;
 
 WiFiManager wm;
 static NetDataResponse netdata;
+
+bool wifiConnected = false;
 
 // 屏幕亮度设置，value [0, 256] 越小越亮, 越大越暗
 void setBrightness(int value)
@@ -283,14 +285,24 @@ void setup()
     wm.setConfigPortalBlocking(false);
     bool state = wm.autoConnect(AP_NAME);
 
-    // 初始化 WebServer
-    server.on("/", []() {
-        server.send(200, "text/plain", "Hi! This is ElegantOTA.");
-    });
+    if (state) {
+        wifiConnected = true;
+        Serial.println("WiFi Connected");
+        Serial.print("IP address: ");
+        Serial.println(WiFi.localIP());
 
-    ElegantOTA.begin(&server);    // Start ElegantOTA
-    server.begin();
-    Serial.println("HTTP server started");
+        // 初始化 WebServer
+        server.on("/", []() {
+            server.send(200, "text/plain", "Hi! This is ElegantOTA.");
+        });
+
+        ElegantOTA.begin(&server);    // Start ElegantOTA
+        server.begin();
+        Serial.println("HTTP server started on port 81");
+    } else {
+        Serial.println("WiFi Connection Failed");
+        lv_label_set_text(loading_label, AP_NAME);
+    }
 
     tft.begin();
     tft.setRotation(0);
@@ -517,23 +529,35 @@ void setup()
     lv_obj_set_style_local_text_color(temp_value_label, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
 
     lv_task_create(update, 1000, LV_TASK_PRIO_MID, 0);
-
-    if (state)
-    {
-        Serial.println("Ready");
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
-    }
-    else
-    {
-        lv_label_set_text(loading_label, AP_NAME);
-    }
 }
 
 void loop()
 {
     lv_task_handler();
     wm.process();
-    server.handleClient();
-    ElegantOTA.loop();
+
+    if (wifiConnected) {
+        server.handleClient();
+        ElegantOTA.loop();
+    }
+
+    // 检查WiFi连接状态
+    if (WiFi.status() == WL_CONNECTED && !wifiConnected) {
+        wifiConnected = true;
+        Serial.println("WiFi Reconnected");
+        Serial.print("New IP address: ");
+        Serial.println(WiFi.localIP());
+
+        // 重新初始化 WebServer
+        server.on("/", []() {
+            server.send(200, "text/plain", "Hi! This is ElegantOTA.");
+        });
+
+        ElegantOTA.begin(&server);
+        server.begin();
+        Serial.println("HTTP server restarted on port 81");
+    } else if (WiFi.status() != WL_CONNECTED && wifiConnected) {
+        wifiConnected = false;
+        Serial.println("WiFi Disconnected");
+    }
 }
