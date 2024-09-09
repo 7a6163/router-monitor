@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include <string>
 
-WiFiManagerParameter netdata_host("host", "NetData Host", "192.168.8.1", 40);
+WiFiManagerParameter netdata_host("host", "NetData Host", "192.168.40.9", 40);
 WiFiManagerParameter netdata_port("port", "NetData Port", "19999", 6);
 
 class NetDataResponse
